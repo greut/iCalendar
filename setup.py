@@ -26,4 +26,5 @@ setup(name='icalendar',
                    'License :: OSI Approved :: GNU General Public License (GPL)',
                    'Operating System :: OS Independent'],
       platforms='All',
+      test_suite='test',
       )
