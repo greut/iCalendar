@@ -271,6 +271,8 @@ class Contentline(str):
     >>> c = Contentline('This line has a UTF-8 character where it should be folded. Make sure it g\xc3\xabts folded before that character.')
     >>> '\xc3\xab' in str(c)
     True
+    >>> '\xc3\\r\\n' in str(c)
+    False
 
     Don't fail if we fold a line that is exactly X times 74 characters long:
     >>> c = str(Contentline(''.join(['x']*148)))
@@ -455,6 +457,7 @@ class Contentline(str):
                         break
                     else:
                         end -= 1
+                        slice = self[start:end]
 
             new_lines.append(slice)
             if end == l_line:
