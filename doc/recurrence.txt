@@ -19,3 +19,5 @@ Testing recurrence.
   >>> first_event['exdate'].dts[2].dt
   datetime.datetime(1996, 4, 4, 1, 0, tzinfo=<icalendar.prop.Utc object at ...>)
  
+  >>> first_event['RRULE'].ical()
+  'FREQ=DAILY;COUNT=100'

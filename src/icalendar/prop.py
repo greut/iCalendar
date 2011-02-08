@@ -920,6 +920,10 @@ class vFrequency(str):
 
 
 class vRecur(CaselessDict):
+    ## http://www.kanzaki.com/docs/ical/recur.html
+    ## apparently order is important; from iCal:
+    ## Cal[63106] <Warning>: iCalendar recurrence failure BYMONTH=11;FREQ=YEARLY;BYDAY=1SU\nline 1,8: unexpected char: '='
+    
     """
     Let's see how close we can get to one from the rfc:
     FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=SU;BYHOUR=8,9;BYMINUTE=30
@@ -931,7 +935,7 @@ class vRecur(CaselessDict):
     >>> r['byminute'] = 30
     >>> r = vRecur(r)
     >>> r.ical()
-    'BYHOUR=8,9;BYDAY=SU;BYMINUTE=30;BYMONTH=1;FREQ=YEARLY;INTERVAL=2'
+    'FREQ=YEARLY;INTERVAL=2;BYMINUTE=30;BYHOUR=8,9;BYDAY=SU;BYMONTH=1'
 
     >>> r = vRecur(FREQ='yearly', INTERVAL=2)
     >>> r['BYMONTH'] = 1
@@ -939,12 +943,12 @@ class vRecur(CaselessDict):
     >>> r['BYHOUR'] = [8,9]
     >>> r['BYMINUTE'] = 30
     >>> r.ical()
-    'BYDAY=SU;BYMINUTE=30;BYMONTH=1;INTERVAL=2;FREQ=YEARLY;BYHOUR=8,9'
+    'FREQ=YEARLY;INTERVAL=2;BYMINUTE=30;BYHOUR=8,9;BYDAY=SU;BYMONTH=1'
 
     >>> r = vRecur(freq='DAILY', count=10)
     >>> r['bysecond'] = [0, 15, 30, 45]
     >>> r.ical()
-    'COUNT=10;FREQ=DAILY;BYSECOND=0,15,30,45'
+    'FREQ=DAILY;COUNT=10;BYSECOND=0,15,30,45'
 
     >>> r = vRecur(freq='DAILY', until=datetime(2005,1,1,12,0,0))
     >>> r.ical()
@@ -955,23 +959,23 @@ class vRecur(CaselessDict):
     >>> r
     {'COUNT': [10], 'FREQ': ['DAILY'], 'INTERVAL': [2]}
     >>> vRecur(r).ical()
-    'COUNT=10;FREQ=DAILY;INTERVAL=2'
+    'FREQ=DAILY;COUNT=10;INTERVAL=2'
 
     >>> r = vRecur.from_ical('FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=-SU;BYHOUR=8,9;BYMINUTE=30')
     >>> r
     {'BYHOUR': [8, 9], 'BYDAY': ['-SU'], 'BYMINUTE': [30], 'BYMONTH': [1], 'FREQ': ['YEARLY'], 'INTERVAL': [2]}
     >>> vRecur(r).ical()
-    'BYDAY=-SU;BYMINUTE=30;INTERVAL=2;BYMONTH=1;FREQ=YEARLY;BYHOUR=8,9'
+    'FREQ=YEARLY;INTERVAL=2;BYMINUTE=30;BYHOUR=8,9;BYDAY=-SU;BYMONTH=1'
 
     Some examples from the spec
 
     >>> r = vRecur.from_ical('FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1')
     >>> vRecur(r).ical()
-    'BYSETPOS=-1;FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR'
+    'FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1'
 
     >>> r = vRecur.from_ical('FREQ=YEARLY;INTERVAL=2;BYMONTH=1;BYDAY=SU;BYHOUR=8,9;BYMINUTE=30')
     >>> vRecur(r).ical()
-    'BYDAY=SU;BYMINUTE=30;INTERVAL=2;BYMONTH=1;FREQ=YEARLY;BYHOUR=8,9'
+    'FREQ=YEARLY;INTERVAL=2;BYMINUTE=30;BYHOUR=8,9;BYDAY=SU;BYMONTH=1'
 
     and some errors
     >>> r = vRecur.from_ical('BYDAY=12')
@@ -995,10 +999,28 @@ class vRecur(CaselessDict):
         'BYMONTH':vInt,
         'UNTIL':vDDDTypes,
         'BYSETPOS':vInt,
+        'BYWEEKNO':vInt,
         'WKST':vWeekday,
         'BYDAY':vWeekday,
         'FREQ':vFrequency
     })
+
+    ordered_keys = (
+        'FREQ',
+        'UNTIL',
+        'COUNT',
+        'INTERVAL',
+        'BYSECOND',
+        'BYMINUTE',
+        'BYHOUR',
+        'BYDAY',
+        'BYMONTHDAY',
+        'BYYEARDAY',
+        'BYWEEKNO',
+        'BYMONTH',
+        'BYSETPOS',
+        'WKST',
+    )
 
     def __init__(self, *args, **kwargs):
         CaselessDict.__init__(self, *args, **kwargs)
@@ -1007,12 +1029,17 @@ class vRecur(CaselessDict):
     def ical(self):
         # SequenceTypes
         result = []
-        for key, vals in self.items():
-            typ = self.types[key]
-            if not type(vals) in SequenceTypes:
-                vals = [vals]
-            vals = ','.join([typ(val).ical() for val in vals])
-            result.append('%s=%s' % (key, vals))
+        
+        for _ok in self.ordered_keys:
+            if _ok in self.keys():
+                key = _ok
+                vals = self[_ok]
+                
+                typ = self.types[key]
+                if not type(vals) in SequenceTypes:
+                    vals = [vals]
+                vals = ','.join([typ(val).ical() for val in vals])
+                result.append('%s=%s' % (key, vals))
         return ';'.join(result)
 
     def parse_type(key, values):
